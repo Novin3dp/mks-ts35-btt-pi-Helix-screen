@@ -26,7 +26,7 @@ fi
 
 log "Installing dependencies"
 sudo apt-get update
-sudo apt-get install -y device-tree-compiler python3-evdev python3-spidev xserver-xorg xserver-xorg-core xserver-xorg-video-fbdev xinit x11-xserver-utils xinput git curl
+sudo apt-get install -y device-tree-compiler python3-evdev python3-spidev git curl
 sudo modprobe spidev || true
 echo spidev | sudo tee /etc/modules-load.d/ts35-spidev.conf >/dev/null
 
@@ -38,7 +38,7 @@ sudo cp "$PROJECT_DIR/overlay/ts35_cb1.dts" "$INSTALL_DIR/overlay/"
 sudo chmod 755 "$INSTALL_DIR/scripts/"*.py
 
 sudo mkdir -p "$BACKUP_DIR"
-for f in /boot/armbianEnv.txt /etc/X11/xorg.conf.d/99-ts35-fbdev.conf "$USER_HOME/printer_data/config/printer.cfg" "$USER_HOME/printer_data/config/KlipperScreen.conf"; do
+for f in /boot/armbianEnv.txt /etc/X11/xorg.conf.d/99-ts35-fbdev.conf "$USER_HOME/printer_data/config/printer.cfg"; do
   [[ -f "$f" ]] && sudo cp -a "$f" "$BACKUP_DIR/$(basename "$f").bak"
 done
 printf '%s\n' "$BACKUP_DIR" | sudo tee "$INSTALL_DIR/last_backup" >/dev/null
@@ -57,19 +57,11 @@ else
   echo 'user_overlays=ts35_cb1' | sudo tee -a /boot/armbianEnv.txt >/dev/null
 fi
 
-sudo mkdir -p /etc/X11/xorg.conf.d
-sudo cp "$PROJECT_DIR/xorg/99-ts35-fbdev.conf" /etc/X11/xorg.conf.d/99-ts35-fbdev.conf
-
-log "Installing KlipperScreen"
-if [[ -d "$USER_HOME/KlipperScreen/.git" ]]; then
-  git -C "$USER_HOME/KlipperScreen" pull --ff-only
-else
-  git clone https://github.com/KlipperScreen/KlipperScreen.git "$USER_HOME/KlipperScreen"
-fi
-sudo chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/KlipperScreen"
-pushd "$USER_HOME/KlipperScreen" >/dev/null
-BACKEND="X" SERVICE="Y" NETWORK="N" START="1" ./scripts/KlipperScreen-install.sh
-popd >/dev/null
+log "Installing HelixScreen"
+# HelixScreen is the only touchscreen UI installed by this project.
+# Its official installer detects the platform, installs the correct release,
+# configures the systemd service, and disables competing touchscreen UIs.
+curl -fsSL https://releases.helixscreen.org/install.sh | sh
 
 sed -e "s#__TS35_BEEPER_FLAG__#$FLAG_FILE#g" "$PROJECT_DIR/services/virtual-touch.service" | sudo tee /etc/systemd/system/virtual-touch.service >/dev/null
 sed -e "s#__TS35_USER__#$USER_NAME#g" -e "s#__TS35_BEEPER_FLAG__#$FLAG_FILE#g" "$PROJECT_DIR/services/beeper-watcher.service" | sudo tee /etc/systemd/system/beeper-watcher.service >/dev/null
