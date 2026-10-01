@@ -1,3 +1,0 @@
-# Stable device name for the virtual XPT2046 touch device used by MKS TS35.
-# HelixScreen can then use /dev/input/ts35-touch instead of a changing eventN.
-SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="ADS7846 Touchscreen", SYMLINK+="input/ts35-touch", MODE="0660", GROUP="input"
