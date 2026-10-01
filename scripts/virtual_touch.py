@@ -13,10 +13,25 @@ FLAG_FILE = os.environ.get("TS35_BEEPER_FLAG", "/home/biqu/beeper_enabled")
 FLAG_CHECK_INTERVAL = 1.0
 PRESS_TH = 60
 
-# Touch calibration
-SWAP_XY = False
-INVERT_X = False
-INVERT_Y = False
+# --- Touch axis calibration -------------------------------------------------
+# The raw X/Y channel assignment and direction can differ slightly between
+# physical MKS TS35 units even with identical wiring, because it depends on
+# how the resistive touch layer itself is oriented internally. If touch is
+# rotated or mirrored on your unit, do NOT edit the mapping logic below;
+# just flip these three booleans and restart the service. See README.md
+# "Touch calibration" for the 4-corner test procedure to determine the
+# correct combination for your unit.
+SWAP_XY = False   # swap the two raw ADC channels before anything else
+INVERT_X = False  # mirror the final X axis (0 <-> 4095)
+INVERT_Y = False  # mirror the final Y axis (0 <-> 4095)
+
+# The panel's electrically active area is usually a bit smaller than the
+# full 0-4095 ADC range, so the raw value never quite reaches 0 or 4095 at
+# the physical edges. Without rescaling, the center of the screen tracks
+# the stylus exactly but tracking increasingly lags behind near the edges
+# (in all four directions equally) -- if you see that symptom, run the
+# 4-corner test in README.md and adjust these to your panel's real raw
+# min/max.
 X_RAW_MIN = 200
 X_RAW_MAX = 3900
 Y_RAW_MIN = 200
@@ -70,8 +85,10 @@ def beeper_gpio_setup():
 touch_path = touch_gpio_setup()
 touch_value_fd = os.open(f"{touch_path}/value", os.O_RDONLY)
 os.read(touch_value_fd, 8)
+
 poller = select.poll()
 poller.register(touch_value_fd, select.POLLPRI | select.POLLERR)
+
 beeper_path = beeper_gpio_setup()
 beeper_value_fd = os.open(f"{beeper_path}/value", os.O_WRONLY)
 
@@ -111,6 +128,7 @@ def read_flag_loop():
 
 
 threading.Thread(target=read_flag_loop, daemon=True).start()
+
 spi = spidev.SpiDev()
 spi.open(0, 2)
 spi.max_speed_hz = 2000000
@@ -130,8 +148,10 @@ capabilities = {
         (e.ABS_PRESSURE, AbsInfo(value=0, min=0, max=1024, fuzz=0, flat=0, resolution=0)),
     ],
 }
+
 ui = UInput(capabilities, name="ADS7846 Touchscreen", version=0x1)
 touched = False
+
 print("Novin3dp TS35 virtual touchscreen running.")
 
 try:
