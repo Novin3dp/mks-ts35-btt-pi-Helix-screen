@@ -57,6 +57,19 @@ else
   echo 'user_overlays=ts35_cb1' | sudo tee -a /boot/armbianEnv.txt >/dev/null
 fi
 
+log "Disabling conflicting KlipperScreen services"
+# HelixScreen must be the only UI owning the framebuffer/input stack.
+# Different KlipperScreen installs may use either capitalization.
+for svc in KlipperScreen.service klipperscreen.service; do
+  if systemctl list-unit-files --full --no-legend "$svc" 2>/dev/null | grep -q . || systemctl is-active --quiet "$svc" 2>/dev/null; then
+    sudo systemctl stop "$svc" 2>/dev/null || true
+    sudo systemctl disable "$svc" 2>/dev/null || true
+    sudo systemctl mask "$svc" 2>/dev/null || true
+    log "Disabled and masked $svc"
+  fi
+done
+sudo systemctl daemon-reload
+
 log "Installing HelixScreen"
 # HelixScreen is the only touchscreen UI installed by this project.
 # Its official installer detects the platform, installs the correct release,
