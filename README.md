@@ -1,22 +1,19 @@
-# MKS TS35 V2 + BTT Pi / CB1 + HelixScreen
+# MKS TS35 V2 + BTT Pi / CB1 + KlipperScreen
 
-راه‌اندازی **HelixScreen** روی **BTT Pi v1.2 / CB1 (Allwinner H616)** با نمایشگر **MKS TS35 V2 480×320** و تاچ مقاومتی **XPT2046**.
+راه‌اندازی خودکار نمایشگر **MKS TS35 V2** روی **BTT Pi / CB1** برای استفاده با **Klipper + Mainsail + KlipperScreen**.
 
-این پروژه HelixScreen رسمی را جایگزین KlipperScreen می‌کند، اما لایه سخت‌افزاری تست‌شده MKS TS35 را حفظ می‌کند:
+## سخت‌افزار هدف
 
-- LCD: ST7796S روی SPI1 CS1، حدود 48MHz
-- Touch: XPT2046 روی SPI1 CS2، حدود 2MHz
-- Touch IRQ: PC10 / GPIO74
-- Touch input: virtual uinput device named ADS7846 Touchscreen
-- Framebuffer: /dev/fb0
-- HelixScreen backend: fbdev
-- Touch mapping: SWAP_XY=False, INVERT_X=True, INVERT_Y=False
-
-HelixScreen مستقیماً روی framebuffer کار می‌کند و برای این معماری به X11/Xorg نیاز ندارد. مستندات رسمی HelixScreen، fbdev را به‌عنوان backend سازگار و BTT CB1 را به‌عنوان پلتفرم پشتیبانی‌شده معرفی می‌کنند. citeturn1search0turn2search1
+- BTT Pi / CB1 با Allwinner H616
+- MKS TS35 V2، رزولوشن 480×320، کنترلر ST7796S
+- تاچ مقاومتی XPT2046
+- Klipper + Moonraker + Mainsail
+- KlipperScreen با backend X11
+- Armbian / Debian با Device Tree Overlay و framebuffer
 
 ## نصب
 
-روی BTT Pi با کاربر معمولی:
+روی BTT Pi / CB1 با کاربر معمولی:
 
 ```bash
 cd ~
@@ -25,130 +22,95 @@ cd mks-ts35-btt-pi-Helix-screen
 bash install.sh
 ```
 
-سپس:
+نصب‌کننده Device Tree Overlay، spidev، framebuffer/Xorg، KlipperScreen، virtual touchscreen و Touch Beep را تنظیم می‌کند و قبل از تغییر فایل‌های موجود backup می‌سازد.
 
-```bash
-sudo reboot
-```
+**بعد از نصب reboot لازم است.**
 
-اسکریپت رسمی HelixScreen از `releases.helixscreen.org` استفاده می‌شود؛ installer رسمی platform را تشخیص می‌دهد، HelixScreen را نصب می‌کند و UI رقیب را غیرفعال می‌کند. citeturn0search0turn2search1
+> اگر repository را قبلاً clone کرده‌ای، قبل از نصب مجدد حتماً `git pull` بزن. نصب‌کننده فایل‌ها را از checkout محلی کپی می‌کند.
 
-## سیم‌کشی TS35
+## Touch calibration
 
-| TS35 | BTT Pi / CB1 |
-|---|---|
-| MOSI | Pin 19 / PH7 |
-| MISO | Pin 21 / PH8 |
-| SCK | Pin 23 / PH6 |
-| LCD_CS | Pin 7 / PC7 → SPI1 CS1 |
-| LCD_DC | Pin 11 / PC14 |
-| LCD_RST | Pin 13 / PC12 |
-| T_CS | Pin 12 / PC13 → SPI1 CS2 |
-| T_IRQ | Pin 15 / PC10 |
-| 5V | Pin 2 یا 4 |
-| GND | Pin 6 |
-
-## معماری تاچ
-
-```
-MKS TS35 XPT2046
-      │
-      ├── SPI1 CS2
-      │
-      └── /dev/spidev0.2
-              │
-              └── virtual_touch.py
-                      │
-                      └── uinput
-                           │
-                           └── /dev/input/ts35-touch
-                                  │
-                                  └── HelixScreen / evdev
-```
-
-HelixScreen از evdev برای ورودی تاچ استفاده می‌کند و می‌توان device را در `input.touch_device` مشخص کرد. این پروژه برای جلوگیری از تغییر شماره eventX یک symlink پایدار `/dev/input/ts35-touch` می‌سازد. citeturn2search0
-
-## کالیبراسیون محورهای تاچ
-
-در `scripts/virtual_touch.py`:
+کالیبراسیون در `scripts/virtual_touch.py` قرار دارد:
 
 ```python
 SWAP_XY = False
-INVERT_X = True
+INVERT_X = False
 INVERT_Y = False
+
+X_RAW_MIN = 200
+X_RAW_MAX = 3900
+Y_RAW_MIN = 200
+Y_RAW_MAX = 3900
 ```
 
-این همان mapping تست‌شده پروژه قبلی Novin3dp است.
-
-اگر لمس جابه‌جا یا معکوس بود، این سه مقدار را تغییر دهید. علاوه بر آن، HelixScreen خودش Touch Calibration دارد و می‌تواند کالیبراسیون affine را روی ورودی مقاومتی انجام دهد. citeturn2search0
-
-برای تست:
+برای بررسی مقادیر خام:
 
 ```bash
-ls -l /dev/input/ts35-touch
-cat /proc/bus/input/devices | grep -A6 -i ADS7846
-sudo evtest /dev/input/ts35-touch
+cat /proc/bus/input/devices | grep -A5 -i ADS7846
+sudo evtest /dev/input/eventX
 ```
 
-## بررسی LCD
+اگر محورهای X/Y جابه‌جا هستند، `SWAP_XY` را تغییر دهید. اگر یک محور معکوس است، `INVERT_X` یا `INVERT_Y` را تغییر دهید. اگر مرکز دقیق است ولی لبه‌ها عقب می‌مانند، محدوده‌ی RAW را با مقادیر واقعی پنل تنظیم کنید.
 
-بعد از reboot:
+## Touch Beep
 
-```bash
-ls -l /dev/fb0
-ls -l /dev/spidev0.2
-fbset -i -fb /dev/fb0
+ماکروی Klipper:
+
+```ini
+[gcode_macro TOGGLE_BEEPER]
+gcode:
+    RESPOND MSG="BEEPER_TOGGLE_EVENT"
 ```
 
-وضعیت:
+پیام توسط `beeper_watcher.py` از Moonraker دریافت می‌شود و وضعیت `beeper_enabled` را تغییر می‌دهد.
+
+## سرویس‌ها
 
 ```bash
-systemctl status helixscreen --no-pager
+systemctl status KlipperScreen --no-pager
 systemctl status virtual-touch.service --no-pager
-journalctl -u helixscreen -n 100 --no-pager
-journalctl -u virtual-touch.service -n 50 --no-pager
+systemctl status beeper-watcher.service --no-pager
 ```
 
-در صورت نیاز HelixScreen را مستقیماً روی framebuffer نگه دارید:
+تاچ مجازی با نام `ADS7846 Touchscreen` از طریق evdev/uinput در اختیار KlipperScreen قرار می‌گیرد.
 
-```bash
-cat ~/helixscreen/config/helixscreen.env
-```
+## تنظیمات سخت‌افزار
 
-باید شامل این باشد:
+- LCD SPI: **48 MHz**
+- Touch SPI: **2 MHz**
+- Touch sampling: حدود **30 Hz**
+- Touch IRQ: GPIO74 / PC10
+- Beeper: GPIO70 / PC6
+- framebuffer: `/dev/fb0`
+- Touch: `/dev/spidev0.2`
 
-```text
-HELIX_DISPLAY_BACKEND=fbdev
-HELIX_TOUCH_DEVICE=/dev/input/ts35-touch
-```
+برای کاهش نویز تصویر، BTT Pi را از ورودی اختصاصی تغذیه کنید.
 
-مستندات HelixScreen نیز برای نمایشگرهای framebuffer استفاده از backend `fbdev` را توصیه/پشتیبانی می‌کنند. citeturn1search0
-
-## نکته مهم درباره KlipperScreen
-
-این repository هیچ بخشی از Python/X11/requirements مربوط به KlipperScreen را نصب نمی‌کند.
-
-اگر KlipperScreen قبلاً روی دستگاه وجود داشته باشد، installer آن را متوقف و disable می‌کند تا با HelixScreen روی /dev/fb0 رقابت نکند. HelixScreen نیز در installer رسمی خود UIهای رقیب را غیرفعال می‌کند. citeturn2search1
-
-## به‌روزرسانی
-
-برای HelixScreen:
-
-```bash
-curl -sSL https://releases.helixscreen.org/install.sh | sh -s -- --update
-```
-
-Moonraker update_manager نیز توسط این installer برای `prestonbrown/helixscreen` تنظیم می‌شود. citeturn0search1
-
-برای به‌روزرسانی لایه TS35:
+## حذف
 
 ```bash
 cd ~/mks-ts35-btt-pi-Helix-screen
-git pull
-bash install.sh
-sudo reboot
+bash uninstall.sh
+```
+
+این اسکریپت Klipper و KlipperScreen را حذف نمی‌کند.
+
+## ساختار
+
+```text
+.
+├── install.sh
+├── uninstall.sh
+├── overlay/ts35_cb1.dts
+├── scripts/virtual_touch.py
+├── scripts/beeper_watcher.py
+├── services/virtual-touch.service
+├── services/beeper-watcher.service
+├── xorg/99-ts35-fbdev.conf
+├── klipper/toggle_beeper.cfg
+└── klipperscreen/touch_beep.conf
 ```
 
 ## License
 
-این repository برای لایه اختصاصی Novin3dp و integration سخت‌افزار TS35 ارائه شده است. HelixScreen مستقل است و تحت GPL-3.0 منتشر می‌شود.
+MIT — see LICENSE.
