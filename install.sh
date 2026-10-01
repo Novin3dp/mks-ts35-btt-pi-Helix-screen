@@ -76,13 +76,6 @@ if [[ -f "$PRINTER_CFG" ]] && ! grep -q '^\[gcode_macro TOGGLE_BEEPER\]' "$PRINT
   sudo chown "$USER_NAME:$USER_NAME" "$PRINTER_CFG"
 fi
 
-KS_CFG="$USER_HOME/printer_data/config/KlipperScreen.conf"
-if [[ -f "$KS_CFG" ]] && ! grep -q '^\[menu __main more beeper_toggle\]' "$KS_CFG"; then
-  printf '\n' | sudo tee -a "$KS_CFG" >/dev/null
-  sudo tee -a "$KS_CFG" < "$PROJECT_DIR/klipperscreen/touch_beep.conf" >/dev/null
-  sudo chown "$USER_NAME:$USER_NAME" "$KS_CFG"
-fi
-
 sudo systemctl daemon-reload
 sudo systemctl enable virtual-touch.service beeper-watcher.service
 sudo systemctl restart beeper-watcher.service
