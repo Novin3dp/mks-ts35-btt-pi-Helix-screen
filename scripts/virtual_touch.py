@@ -21,7 +21,7 @@ PRESS_TH = 60
 # just flip these three booleans and restart the service. See README.md
 # "Touch calibration" for the 4-corner test procedure to determine the
 # correct combination for your unit.
-SWAP_XY = False   # swap the two raw ADC channels before anything else
+SWAP_XY = True    # TS35 hardware/display orientation: raw Y -> screen X, raw X -> screen Y
 INVERT_X = False  # mirror the final X axis (0 <-> 4095)
 INVERT_Y = False  # mirror the final Y axis (0 <-> 4095)
 
