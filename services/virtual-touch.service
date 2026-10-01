@@ -1,0 +1,15 @@
+[Unit]
+Description=Novin3dp MKS TS35 virtual XPT2046 touchscreen for HelixScreen
+After=multi-user.target systemd-modules-load.service
+Wants=systemd-modules-load.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/bash -c 'echo spidev > /sys/bus/spi/devices/spi0.2/driver_override; echo spi0.2 > /sys/bus/spi/drivers/spidev/bind 2>/dev/null || true'
+ExecStart=/usr/bin/python3 /opt/novin3dp-ts35/scripts/virtual_touch.py
+Restart=always
+RestartSec=2
+User=root
+
+[Install]
+WantedBy=multi-user.target
