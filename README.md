@@ -38,6 +38,7 @@ bash install.sh
 اسکریپت نصب:
 - وابستگی‌ها (`device-tree-compiler`, `python3-evdev`, `python3-spidev`) را نصب می‌کند
 - ماژول کرنل `spidev` را فعال و دائمی می‌کند
+- سرویس‌های KlipperScreen را متوقف، غیرفعال و mask می‌کند (HelixScreen باید تنها UI باشد)
 - Device Tree Overlay را کامپایل و در `/boot/overlay-user/` نصب می‌کند و `armbianEnv.txt` را به‌روزرسانی می‌کند
 - درایور مجازی تاچ (`virtual_touch.py`) را به‌عنوان سرویس systemd نصب می‌کند
 - در صورت تایید شما، بیپر اختیاری و ماکروی `TOGGLE_BEEPER` را هم نصب می‌کند

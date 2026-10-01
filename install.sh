@@ -117,6 +117,19 @@ for f in /usr/share/X11/xorg.conf.d/99-touch-evdev.conf /etc/X11/xorg.conf.d/99-
     fi
 done
 
+log "Disabling conflicting KlipperScreen services"
+# HelixScreen must be the only UI owning the framebuffer/input stack.
+# Different KlipperScreen installs may use either capitalization.
+for svc in KlipperScreen.service klipperscreen.service; do
+    if systemctl list-unit-files --full --no-legend "$svc" 2>/dev/null | grep -q . || systemctl is-active --quiet "$svc" 2>/dev/null; then
+        sudo systemctl stop "$svc" 2>/dev/null || true
+        sudo systemctl disable "$svc" 2>/dev/null || true
+        sudo systemctl mask "$svc" 2>/dev/null || true
+        log "Disabled and masked $svc"
+    fi
+done
+sudo systemctl daemon-reload
+
 log "Installing virtual-touch service"
 sed -e "s#__TS35_BEEPER_FLAG__#$FLAG_FILE#g" \
     -e "s#__TS35_BEEPER_HARDWARE__#$BEEPER_HARDWARE#g" \
