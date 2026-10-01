@@ -2,7 +2,7 @@
 
 راه‌اندازی خودکار درایور تاچ **MKS TS35 V2** روی **BTT Pi / CB1** برای استفاده با **Klipper + Moonraker + HelixScreen**.
 
-این ریپازیتوری نسخه‌ی مخصوص **HelixScreen** پروژه‌ی تاچ TS35 است: فقط Device Tree Overlay، درایور مجازی تاچ (spidev + uinput) و بیپر اختیاری را نصب می‌کند — بدون نیاز به Xorg یا KlipperScreen، چون HelixScreen مستقیماً روی framebuffer رندر می‌کند و دستگاه تاچ تولیدشده را خودش به‌صورت خودکار تشخیص می‌دهد (بدون نیاز به کالیبراسیون جداگانه).
+این ریپازیتوری نسخه‌ی مخصوص **HelixScreen** پروژه‌ی تاچ TS35 است: Device Tree Overlay، درایور مجازی تاچ (spidev + uinput)، HelixScreen و بیپر اختیاری را نصب می‌کند — بدون نیاز به Xorg یا KlipperScreen، چون HelixScreen مستقیماً روی framebuffer رندر می‌کند و دستگاه تاچ تولیدشده را خودش به‌صورت خودکار تشخیص می‌دهد (بدون نیاز به کالیبراسیون جداگانه).
 
 اگر به‌دنبال نسخه‌ی KlipperScreen (X11) هستید، به این ریپازیتوری مراجعه کنید:
 https://github.com/Novin3dp/mks-ts35-btt-pi-klipper-screen
@@ -41,17 +41,12 @@ bash install.sh
 - سرویس‌های KlipperScreen را متوقف، غیرفعال و mask می‌کند (HelixScreen باید تنها UI باشد)
 - Device Tree Overlay را کامپایل و در `/boot/overlay-user/` نصب می‌کند و `armbianEnv.txt` را به‌روزرسانی می‌کند
 - درایور مجازی تاچ (`virtual_touch.py`) را به‌عنوان سرویس systemd نصب می‌کند
+- HelixScreen را با نصب‌کننده‌ی رسمی نصب می‌کند
 - در صورت تایید شما، بیپر اختیاری و ماکروی `TOGGLE_BEEPER` را هم نصب می‌کند
 - قبل از هر تغییر، از فایل‌های موجود backup می‌گیرد
 - اگر این پوشه یک git clone باشد، قبل از نصب بررسی می‌کند که نسخه‌ی محلی عقب‌تر از GitHub نباشد (برای جلوگیری از نصب نسخه‌ی قدیمی)
 
-**این ریپازیتوری HelixScreen را نصب نمی‌کند.** اگر HelixScreen را هنوز نصب نکرده‌اید:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh | sh
-```
-
-(جزئیات بیشتر: https://github.com/prestonbrown/helixscreen)
+**HelixScreen هم توسط همین اسکریپت نصب می‌شود** (با نصب‌کننده‌ی رسمی: `https://releases.helixscreen.org/install.sh`). جزئیات بیشتر: https://github.com/prestonbrown/helixscreen
 
 پس از نصب این ریپازیتوری، **یک reboot لازم است** تا overlay فعال شود.
 

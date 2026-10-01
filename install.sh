@@ -130,6 +130,11 @@ for svc in KlipperScreen.service klipperscreen.service; do
 done
 sudo systemctl daemon-reload
 
+log "Installing HelixScreen"
+# The official HelixScreen installer detects the platform, installs the
+# matching release and configures its systemd service.
+curl -fsSL https://releases.helixscreen.org/install.sh | sh
+
 log "Installing virtual-touch service"
 sed -e "s#__TS35_BEEPER_FLAG__#$FLAG_FILE#g" \
     -e "s#__TS35_BEEPER_HARDWARE__#$BEEPER_HARDWARE#g" \
@@ -192,10 +197,6 @@ fi
 
 cat <<EOF
 
-This project only installs the TS35 touch driver (and optional beeper).
-HelixScreen itself is a separate project; if it is not installed yet, see:
-  https://github.com/prestonbrown/helixscreen
-  curl -sSL https://raw.githubusercontent.com/prestonbrown/helixscreen/main/scripts/install.sh | sh
-
+This project installed the TS35 touch driver (and optional beeper) and HelixScreen.
 Touch is auto-detected by HelixScreen; no recalibration step is needed there.
 EOF
