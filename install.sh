@@ -70,6 +70,41 @@ sudo udevadm trigger || true
 log "Installing virtual touchscreen service"
 sudo cp "$PROJECT_DIR/services/virtual-touch.service" /etc/systemd/system/virtual-touch.service
 
+log "Removing KlipperScreen if it is installed"
+# KlipperScreen and HelixScreen must never run together on the same display.
+KLIPPERSCREEN_DIR="$USER_HOME/KlipperScreen"
+KLIPPERSCREEN_ALT_DIR="/opt/KlipperScreen"
+
+for unit in KlipperScreen.service klipperscreen.service; do
+    sudo systemctl disable --now "$unit" 2>/dev/null || true
+    sudo systemctl stop "$unit" 2>/dev/null || true
+    if [[ -f "/etc/systemd/system/$unit" ]]; then
+        sudo cp -a "/etc/systemd/system/$unit" "$BACKUP_DIR/$unit.bak"
+        sudo rm -f "/etc/systemd/system/$unit"
+    fi
+done
+sudo systemctl daemon-reload
+
+if [[ -d "$KLIPPERSCREEN_DIR" ]]; then
+    sudo mv "$KLIPPERSCREEN_DIR" "$BACKUP_DIR/KlipperScreen"
+fi
+if [[ -d "$KLIPPERSCREEN_ALT_DIR" ]]; then
+    sudo mv "$KLIPPERSCREEN_ALT_DIR" "$BACKUP_DIR/KlipperScreen-opt"
+fi
+
+# Also purge an apt package if KlipperScreen was installed that way.
+if dpkg -s klipperscreen >/dev/null 2>&1; then
+    sudo apt-get purge -y klipperscreen || true
+    sudo apt-get autoremove -y || true
+fi
+
+# Remove stale desktop autostart entries, keeping backups.
+for autostart in "$USER_HOME/.config/autostart/KlipperScreen.desktop" "$USER_HOME/.config/autostart/klipperscreen.desktop"; do
+    if [[ -f "$autostart" ]]; then
+        sudo mv "$autostart" "$BACKUP_DIR/$(basename "$autostart").bak"
+    fi
+done
+
 log "Installing HelixScreen"
 if [[ -x "$USER_HOME/helixscreen/bin/helix-screen" ]]; then
     log "Existing HelixScreen detected; running official updater"
@@ -132,9 +167,9 @@ log "Installing services"
 sudo systemctl daemon-reload
 sudo systemctl enable virtual-touch.service
 
-# HelixScreen normally disables competing UIs. Ensure the old UI cannot race
-# with HelixScreen if it is still installed from the previous Novin3dp project.
+# Final safety check: both possible KlipperScreen unit names must be stopped.
 sudo systemctl disable --now KlipperScreen.service 2>/dev/null || true
+sudo systemctl disable --now klipperscreen.service 2>/dev/null || true
 sudo systemctl stop virtual-touch.service 2>/dev/null || true
 
 if [[ -e /dev/spidev0.2 ]]; then
