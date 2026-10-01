@@ -1,11 +1,11 @@
 [Unit]
-Description=Novin3dp TS35 beeper enable/disable watcher
+Description=Novin3dp TS35 beeper enable/disable watcher (HelixScreen build)
 After=moonraker.service
 Wants=moonraker.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/novin3dp-ts35/scripts/beeper_watcher.py
+ExecStart=/usr/bin/python3 /opt/novin3dp-ts35-helix/scripts/beeper_watcher.py
 Restart=always
 RestartSec=2
 User=__TS35_USER__

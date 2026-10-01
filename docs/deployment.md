@@ -26,7 +26,7 @@ GPIO70 / PC6 drives the optional active 5V beeper through a transistor. Klipper 
 ```bash
 ls -l /dev/fb0 /dev/spidev0.2
 dmesg | grep -i spi
-systemctl status KlipperScreen --no-pager
+systemctl status helixscreen --no-pager
 systemctl status virtual-touch.service --no-pager
 systemctl status beeper-watcher.service --no-pager
 ```

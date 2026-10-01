@@ -12,6 +12,7 @@ BEEP_MS = 25
 FLAG_FILE = os.environ.get("TS35_BEEPER_FLAG", "/home/biqu/beeper_enabled")
 FLAG_CHECK_INTERVAL = 1.0
 PRESS_TH = 60
+BEEPER_ENABLED_BUILD = os.environ.get("TS35_BEEPER_HARDWARE", "1") != "0"
 
 # --- Touch axis calibration -------------------------------------------------
 # The raw X/Y channel assignment and direction can differ slightly between
@@ -21,38 +22,35 @@ PRESS_TH = 60
 # just flip these three booleans and restart the service. See README.md
 # "Touch calibration" for the 4-corner test procedure to determine the
 # correct combination for your unit.
-SWAP_XY = True    # TS35 hardware/display orientation: raw Y -> screen X, raw X -> screen Y
-INVERT_X = False  # mirror the final X axis (0 <-> 4095)
+SWAP_XY = False   # swap the two raw ADC channels before anything else
+INVERT_X = True   # mirror the final X axis (0 <-> 4095)
 INVERT_Y = False  # mirror the final Y axis (0 <-> 4095)
 
-# The panel's electrically active area is usually a bit smaller than the
-# full 0-4095 ADC range, so the raw value never quite reaches 0 or 4095 at
-# the physical edges. Without rescaling, the center of the screen tracks
-# the stylus exactly but tracking increasingly lags behind near the edges
-# (in all four directions equally) -- if you see that symptom, run the
-# 4-corner test in README.md and adjust these to your panel's real raw
-# min/max.
+# --- Touch range rescale -----------------------------------------------------
+# The raw ADC range of the resistive panel is narrower than the theoretical
+# 0-4095 span. If touch is accurate in the center but off by a few mm near
+# the edges, adjust these to match your panel (see README.md).
 X_RAW_MIN = 200
 X_RAW_MAX = 3900
 Y_RAW_MIN = 200
 Y_RAW_MAX = 3900
 
 
-def rescale(v, vmin, vmax):
-    v = max(vmin, min(vmax, v))
-    return int((v - vmin) * 4095 / (vmax - vmin))
+def rescale(value, raw_min, raw_max):
+    value = max(raw_min, min(raw_max, value))
+    return int((value - raw_min) * 4095 / (raw_max - raw_min))
 
 
 def map_axes(x_raw, y_raw):
-    x_raw = rescale(x_raw, X_RAW_MIN, X_RAW_MAX)
-    y_raw = rescale(y_raw, Y_RAW_MIN, Y_RAW_MAX)
     if SWAP_XY:
         x_raw, y_raw = y_raw, x_raw
+    x = rescale(x_raw, X_RAW_MIN, X_RAW_MAX)
+    y = rescale(y_raw, Y_RAW_MIN, Y_RAW_MAX)
     if INVERT_X:
-        x_raw = 4095 - x_raw
+        x = 4095 - x
     if INVERT_Y:
-        y_raw = 4095 - y_raw
-    return x_raw, y_raw
+        y = 4095 - y
+    return x, y
 
 
 def export_gpio(number):
@@ -89,8 +87,14 @@ os.read(touch_value_fd, 8)
 poller = select.poll()
 poller.register(touch_value_fd, select.POLLPRI | select.POLLERR)
 
-beeper_path = beeper_gpio_setup()
-beeper_value_fd = os.open(f"{beeper_path}/value", os.O_WRONLY)
+beeper_value_fd = None
+if BEEPER_ENABLED_BUILD:
+    try:
+        beeper_path = beeper_gpio_setup()
+        beeper_value_fd = os.open(f"{beeper_path}/value", os.O_WRONLY)
+    except OSError as exc:
+        print(f"Beeper GPIO unavailable, continuing without beep feedback: {exc}")
+        beeper_value_fd = None
 
 
 def gpio_is_low():
@@ -109,10 +113,13 @@ beeper_enabled = [True]
 
 
 def beep():
-    if not beeper_enabled[0]:
+    if beeper_value_fd is None or not beeper_enabled[0]:
         return
-    os.write(beeper_value_fd, b"1")
-    threading.Timer(BEEP_MS / 1000.0, _beep_off).start()
+    try:
+        os.write(beeper_value_fd, b"1")
+        threading.Timer(BEEP_MS / 1000.0, _beep_off).start()
+    except OSError:
+        pass
 
 
 def read_flag_loop():
@@ -127,7 +134,8 @@ def read_flag_loop():
         time.sleep(FLAG_CHECK_INTERVAL)
 
 
-threading.Thread(target=read_flag_loop, daemon=True).start()
+if beeper_value_fd is not None:
+    threading.Thread(target=read_flag_loop, daemon=True).start()
 
 spi = spidev.SpiDev()
 spi.open(0, 2)
@@ -152,7 +160,7 @@ capabilities = {
 ui = UInput(capabilities, name="ADS7846 Touchscreen", version=0x1)
 touched = False
 
-print("Novin3dp TS35 virtual touchscreen running.")
+print("Novin3dp TS35 virtual touchscreen (HelixScreen build) running.")
 
 try:
     while True:
@@ -195,4 +203,5 @@ finally:
     ui.close()
     spi.close()
     os.close(touch_value_fd)
-    os.close(beeper_value_fd)
+    if beeper_value_fd is not None:
+        os.close(beeper_value_fd)
