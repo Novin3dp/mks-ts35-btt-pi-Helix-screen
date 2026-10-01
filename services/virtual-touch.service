@@ -1,5 +1,5 @@
 [Unit]
-Description=Novin3dp MKS TS35 virtual XPT2046 touchscreen for HelixScreen
+Description=Novin3dp MKS TS35 virtual XPT2046 touchscreen
 After=multi-user.target systemd-modules-load.service
 Wants=systemd-modules-load.service
 
@@ -10,6 +10,7 @@ ExecStart=/usr/bin/python3 /opt/novin3dp-ts35/scripts/virtual_touch.py
 Restart=always
 RestartSec=2
 User=root
+Environment=TS35_BEEPER_FLAG=__TS35_BEEPER_FLAG__
 
 [Install]
 WantedBy=multi-user.target
