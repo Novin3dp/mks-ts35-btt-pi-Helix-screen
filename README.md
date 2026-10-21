@@ -36,7 +36,7 @@ bash install.sh
 ```
 
 اسکریپت نصب:
-- وابستگی‌ها (`device-tree-compiler`, `python3-evdev`, `python3-spidev`) را نصب می‌کند
+- به هیچ بسته‌ی اضافی نیاز ندارد (درایور فقط از Python استاندارد استفاده می‌کند و overlay از قبل کامپایل شده است)
 - ماژول کرنل `spidev` را فعال و دائمی می‌کند
 - سرویس‌های KlipperScreen را متوقف، غیرفعال و mask می‌کند (HelixScreen باید تنها UI باشد)
 - Device Tree Overlay را کامپایل و در `/boot/overlay-user/` نصب می‌کند و `armbianEnv.txt` را به‌روزرسانی می‌کند
@@ -184,6 +184,7 @@ cat ~/beeper_enabled   # باید 1 باشد
 
 ```
 overlay/ts35_cb1.dts          Device Tree Overlay (LCD @48MHz، تاچ @2MHz spidev)
+overlay/ts35_cb1.dtbo         نسخه‌ی کامپایل‌شده‌ی overlay (برای نصب بدون dtc)
 scripts/virtual_touch.py      درایور مجازی تاچ + کالیبراسیون + بیپر اختیاری
 scripts/beeper_watcher.py     polling از Moonraker برای toggle کردن بیپر
 services/virtual-touch.service
