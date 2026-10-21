@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نصب آفلاین TS35</title>
+<style>
+body{font-family:Tahoma,sans-serif;max-width:820px;margin:auto;padding:16px;line-height:1.8;background:#fff;color:#222}
+h1{font-size:1.5em}h2{border-bottom:2px solid #ddd;padding-bottom:4px;margin-top:32px}h3{margin-bottom:4px}
+pre{direction:ltr;text-align:left;background:#f4f4f4;border:1px solid #ddd;padding:10px;overflow-x:auto;white-space:pre}
+code{direction:ltr;unicode-bidi:embed;background:#f4f4f4;padding:0 4px}
+.note{background:#fff7e0;border-right:4px solid #e0a800;padding:8px}
+</style>
+</head>
+<body>
+<h1>نصب آفلاین MKS TS35 + HelixScreen</h1>
+<p>کاربر کامپیوتر: <code>hello hamid</code> — کاربر BTT Pi: <code>biqu</code></p>
+
+<h2>۱. آماده‌سازی (با اینترنت)</h2>
+<h3>۱-۱. دانلود ریپازیتوری</h3>
+<p>ZIP ریپازیتوری را دانلود و در این مسیر extract کنید:</p>
+<pre>C:\Users\hello hamid\Downloads\mks-ts35-btt-pi-Helix-screen</pre>
+
+<h3>۱-۲. دانلود بسته‌ها</h3>
+<p>این کار را روی یک CB1 با همان ایمیج Armbian و متصل به اینترنت انجام دهید:</p>
+<pre>mkdir ~/ts35-debs && cd ~/ts35-debs
+sudo apt-get update
+sudo apt-get install --download-only -y device-tree-compiler python3-evdev python3-spidev
+cp /var/cache/apt/archives/*.deb .</pre>
+<p>پوشه‌ی <code>ts35-debs</code> را در این مسیر کامپیوتر کپی کنید:</p>
+<pre>C:\Users\hello hamid\Downloads\ts35-debs</pre>
+
+<h3>۱-۳. دانلود HelixScreen</h3>
+<p>فایل نسخه‌ی <code>arm64</code> را از صفحه‌ی Releases در <code>C:\Users\hello hamid\Downloads\</code> ذخیره کنید:</p>
+<pre>https://github.com/prestonbrown/helixscreen/releases</pre>
+
+<h2>۲. انتقال به BTT Pi</h2>
+<p>در PowerShell کامپیوتر اجرا کنید (به‌جای <code>IP</code> آدرس BTT Pi را بنویسید):</p>
+<pre>cd "C:\Users\hello hamid\Downloads"
+scp -r mks-ts35-btt-pi-Helix-screen ts35-debs biqu@IP:/home/biqu/
+scp helixscreen-* biqu@IP:/home/biqu/</pre>
+<p>سپس وارد BTT Pi شوید:</p>
+<pre>ssh biqu@IP</pre>
+
+<h2>۳. نصب (روی BTT Pi)</h2>
+<h3>۳-۱. بسته‌ها</h3>
+<pre>sudo dpkg -i /home/biqu/ts35-debs/*.deb</pre>
+
+<h3>۳-۲. ماژول spidev</h3>
+<pre>sudo modprobe spidev
+echo spidev | sudo tee /etc/modules-load.d/ts35-spidev.conf</pre>
+
+<h3>۳-۳. کپی فایل‌ها</h3>
+<pre>cd /home/biqu/mks-ts35-btt-pi-Helix-screen
+sudo mkdir -p /opt/novin3dp-ts35-helix/scripts /opt/novin3dp-ts35-helix/overlay
+sudo cp scripts/*.py /opt/novin3dp-ts35-helix/scripts/
+sudo cp overlay/ts35_cb1.dts /opt/novin3dp-ts35-helix/overlay/
+sudo chmod 755 /opt/novin3dp-ts35-helix/scripts/*.py</pre>
+
+<h3>۳-۴. بکاپ</h3>
+<pre>mkdir -p /home/biqu/novin3dp-ts35-helix-backups
+cp /boot/armbianEnv.txt /home/biqu/printer_data/config/printer.cfg /home/biqu/novin3dp-ts35-helix-backups/</pre>
+
+<h3>۳-۵. Overlay</h3>
+<pre>dtc -@ -I dts -O dtb -o /tmp/ts35_cb1.dtbo overlay/ts35_cb1.dts
+sudo mkdir -p /boot/overlay-user
+sudo cp /tmp/ts35_cb1.dtbo /boot/overlay-user/
+sudo nano /boot/armbianEnv.txt</pre>
+<p>در فایل باز شده، <code>ts35_cb1</code> را به انتهای خط <code>user_overlays=</code> اضافه کنید. اگر این خط وجود ندارد، این خط را بنویسید:</p>
+<pre>user_overlays=ts35_cb1</pre>
+
+<h3>۳-۶. غیرفعال‌کردن KlipperScreen</h3>
+<pre>for s in KlipperScreen klipperscreen; do sudo systemctl stop $s; sudo systemctl disable $s; sudo systemctl mask $s; done 2>/dev/null</pre>
+
+<h3>۳-۷. نصب HelixScreen</h3>
+<p>فایل <code>/home/biqu/helixscreen-*</code> را طبق راهنمای همان نسخه نصب کنید:</p>
+<pre>https://github.com/prestonbrown/helixscreen</pre>
+
+<h3>۳-۸. سرویس تاچ</h3>
+<p>اگر بیپر ندارید، در خط اول <code>BEEP=0</code> بگذارید:</p>
+<pre>BEEP=1
+sed -e "s#__TS35_BEEPER_FLAG__#/home/biqu/beeper_enabled#g" -e "s#__TS35_BEEPER_HARDWARE__#$BEEP#g" \
+    services/virtual-touch.service | sudo tee /etc/systemd/system/virtual-touch.service >/dev/null
+echo 1 > /home/biqu/beeper_enabled
+sudo chown -R biqu:biqu /opt/novin3dp-ts35-helix</pre>
+
+<h3>۳-۹. بیپر (فقط اگر BEEP=1)</h3>
+<pre>sed -e "s#__TS35_USER__#biqu#g" -e "s#__TS35_BEEPER_FLAG__#/home/biqu/beeper_enabled#g" \
+    services/beeper-watcher.service | sudo tee /etc/systemd/system/beeper-watcher.service >/dev/null
+grep -q '^\[gcode_macro TOGGLE_BEEPER\]' /home/biqu/printer_data/config/printer.cfg || \
+    { echo; cat klipper/toggle_beeper.cfg; } >> /home/biqu/printer_data/config/printer.cfg
+sudo systemctl enable beeper-watcher.service</pre>
+
+<h3>۳-۱۰. فعال‌سازی و ری‌استارت</h3>
+<pre>sudo systemctl daemon-reload
+sudo systemctl enable virtual-touch.service
+sudo reboot</pre>
+
+<h2>۴. بررسی</h2>
+<pre>ls /dev/spidev0.2
+systemctl status virtual-touch.service --no-pager
+systemctl status helixscreen --no-pager</pre>
+<p class="note">اگر تاچ برعکس بود، مقادیر <code>SWAP_XY</code>، <code>INVERT_X</code> و <code>INVERT_Y</code> را در <code>/opt/novin3dp-ts35-helix/scripts/virtual_touch.py</code> تغییر دهید و بعد این دستور را اجرا کنید: <code>sudo systemctl restart virtual-touch</code></p>
+</body>
+</html>

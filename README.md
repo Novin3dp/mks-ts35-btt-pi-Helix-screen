@@ -190,7 +190,7 @@ services/virtual-touch.service
 services/beeper-watcher.service
 klipper/toggle_beeper.cfg     ماکروی TOGGLE_BEEPER
 docs/helixscreen-widget.md    راهنمای افزودن ویجت در HelixScreen
-docs/offline-install.md       راهنمای نصب آفلاین
+docs/offline-install.html     راهنمای نصب آفلاین
 install.sh / uninstall.sh
 ```
 
