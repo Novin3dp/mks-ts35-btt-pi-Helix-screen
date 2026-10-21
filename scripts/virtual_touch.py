@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
+import ctypes
+import fcntl
 import os
 import select
-import spidev
+import struct
 import threading
 import time
-from evdev import UInput, AbsInfo, ecodes as e
 
 TOUCH_GPIO = 74
 BEEPER_GPIO = 70
@@ -51,6 +52,90 @@ def map_axes(x_raw, y_raw):
     if INVERT_Y:
         y = 4095 - y
     return x, y
+
+
+# --- Minimal SPI / uinput access (Python standard library only) -------------
+# Replaces python3-spidev and python3-evdev so the driver runs on a stock
+# MainsailOS/Armbian image without installing extra packages.
+def _iow(kind, nr, size):
+    return (1 << 30) | (size << 16) | (ord(kind) << 8) | nr
+
+
+def _io(kind, nr):
+    return (ord(kind) << 8) | nr
+
+
+SPI_IOC_WR_MODE = _iow("k", 1, 1)
+SPI_IOC_WR_MAX_SPEED_HZ = _iow("k", 4, 4)
+SPI_TRANSFER_FMT = "QQIIHBBBBBB"  # struct spi_ioc_transfer (32 bytes)
+SPI_IOC_MESSAGE_1 = _iow("k", 0, struct.calcsize(SPI_TRANSFER_FMT))
+
+
+class SpiDev:
+    def __init__(self, bus, device, speed_hz, mode=0):
+        self.fd = os.open(f"/dev/spidev{bus}.{device}", os.O_RDWR)
+        self.speed_hz = speed_hz
+        fcntl.ioctl(self.fd, SPI_IOC_WR_MODE, struct.pack("B", mode))
+        fcntl.ioctl(self.fd, SPI_IOC_WR_MAX_SPEED_HZ, struct.pack("I", speed_hz))
+
+    def xfer2(self, data):
+        n = len(data)
+        tx = ctypes.create_string_buffer(bytes(data), n)
+        rx = ctypes.create_string_buffer(n)
+        msg = struct.pack(SPI_TRANSFER_FMT, ctypes.addressof(tx), ctypes.addressof(rx),
+                          n, self.speed_hz, 0, 8, 0, 0, 0, 0, 0)
+        fcntl.ioctl(self.fd, SPI_IOC_MESSAGE_1, msg)
+        return list(rx.raw)
+
+    def close(self):
+        os.close(self.fd)
+
+
+EV_SYN, EV_KEY, EV_ABS = 0x00, 0x01, 0x03
+SYN_REPORT = 0
+BTN_TOUCH = 0x14A
+ABS_X, ABS_Y, ABS_PRESSURE = 0x00, 0x01, 0x18
+ABS_CNT = 64
+UI_SET_EVBIT = _iow("U", 100, 4)
+UI_SET_KEYBIT = _iow("U", 101, 4)
+UI_SET_ABSBIT = _iow("U", 103, 4)
+UI_DEV_CREATE = _io("U", 1)
+UI_DEV_DESTROY = _io("U", 2)
+BUS_USB = 0x03
+
+
+class UInput:
+    def __init__(self, name, abs_ranges, keys):
+        self.fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
+        fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_KEY)
+        for key in keys:
+            fcntl.ioctl(self.fd, UI_SET_KEYBIT, key)
+        fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_ABS)
+        absmax = [0] * ABS_CNT
+        absmin = [0] * ABS_CNT
+        for code, (lo, hi) in abs_ranges.items():
+            fcntl.ioctl(self.fd, UI_SET_ABSBIT, code)
+            absmin[code], absmax[code] = lo, hi
+        # struct uinput_user_dev
+        dev = struct.pack("80sHHHHi", name.encode()[:79], BUS_USB, 1, 1, 1, 0)
+        dev += struct.pack(f"{ABS_CNT}i", *absmax) + struct.pack(f"{ABS_CNT}i", *absmin)
+        dev += struct.pack(f"{ABS_CNT * 2}i", *([0] * ABS_CNT * 2))  # fuzz, flat
+        os.write(self.fd, dev)
+        fcntl.ioctl(self.fd, UI_DEV_CREATE)
+
+    def write(self, etype, code, value):
+        now = time.time()
+        sec = int(now)
+        os.write(self.fd, struct.pack("llHHi", sec, int((now - sec) * 1e6), etype, code, value))
+
+    def syn(self):
+        self.write(EV_SYN, SYN_REPORT, 0)
+
+    def close(self):
+        try:
+            fcntl.ioctl(self.fd, UI_DEV_DESTROY)
+        finally:
+            os.close(self.fd)
 
 
 def export_gpio(number):
@@ -137,10 +222,7 @@ def read_flag_loop():
 if beeper_value_fd is not None:
     threading.Thread(target=read_flag_loop, daemon=True).start()
 
-spi = spidev.SpiDev()
-spi.open(0, 2)
-spi.max_speed_hz = 2000000
-spi.mode = 0
+spi = SpiDev(0, 2, 2000000, mode=0)
 
 
 def read(cmd):
@@ -148,16 +230,11 @@ def read(cmd):
     return ((r[1] << 8) | r[2]) >> 3
 
 
-capabilities = {
-    e.EV_KEY: [e.BTN_TOUCH],
-    e.EV_ABS: [
-        (e.ABS_X, AbsInfo(value=0, min=0, max=4095, fuzz=0, flat=0, resolution=0)),
-        (e.ABS_Y, AbsInfo(value=0, min=0, max=4095, fuzz=0, flat=0, resolution=0)),
-        (e.ABS_PRESSURE, AbsInfo(value=0, min=0, max=1024, fuzz=0, flat=0, resolution=0)),
-    ],
-}
-
-ui = UInput(capabilities, name="ADS7846 Touchscreen", version=0x1)
+ui = UInput(
+    "ADS7846 Touchscreen",
+    {ABS_X: (0, 4095), ABS_Y: (0, 4095), ABS_PRESSURE: (0, 1024)},
+    [BTN_TOUCH],
+)
 touched = False
 
 print("Novin3dp TS35 virtual touchscreen (HelixScreen build) running.")
@@ -174,10 +251,10 @@ try:
                 x_raw = read(0x90)
                 y_raw = read(0xD0)
                 out_x, out_y = map_axes(x_raw, y_raw)
-                ui.write(e.EV_KEY, e.BTN_TOUCH, 1)
-                ui.write(e.EV_ABS, e.ABS_X, out_x)
-                ui.write(e.EV_ABS, e.ABS_Y, out_y)
-                ui.write(e.EV_ABS, e.ABS_PRESSURE, 500)
+                ui.write(EV_KEY, BTN_TOUCH, 1)
+                ui.write(EV_ABS, ABS_X, out_x)
+                ui.write(EV_ABS, ABS_Y, out_y)
+                ui.write(EV_ABS, ABS_PRESSURE, 500)
                 ui.syn()
                 touched = True
                 beep()
@@ -187,13 +264,13 @@ try:
             z1 = read(0xB0)
             if z1 > PRESS_TH and x_raw < 4090:
                 out_x, out_y = map_axes(x_raw, y_raw)
-                ui.write(e.EV_ABS, e.ABS_X, out_x)
-                ui.write(e.EV_ABS, e.ABS_Y, out_y)
-                ui.write(e.EV_ABS, e.ABS_PRESSURE, 500)
+                ui.write(EV_ABS, ABS_X, out_x)
+                ui.write(EV_ABS, ABS_Y, out_y)
+                ui.write(EV_ABS, ABS_PRESSURE, 500)
                 ui.syn()
             else:
-                ui.write(e.EV_KEY, e.BTN_TOUCH, 0)
-                ui.write(e.EV_ABS, e.ABS_PRESSURE, 0)
+                ui.write(EV_KEY, BTN_TOUCH, 0)
+                ui.write(EV_ABS, ABS_PRESSURE, 0)
                 ui.syn()
                 touched = False
             time.sleep(0.0333)

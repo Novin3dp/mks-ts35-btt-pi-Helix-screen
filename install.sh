@@ -54,9 +54,8 @@ if [[ -z "${TS35_BEEPER_HARDWARE:-}" ]]; then
     fi
 fi
 
-log "Installing dependencies"
-sudo apt-get update
-sudo apt-get install -y device-tree-compiler python3-evdev python3-spidev git curl
+# No extra packages are needed: the touch driver uses only the Python standard
+# library and the overlay ships precompiled (overlay/ts35_cb1.dtbo).
 
 log "Ensuring spidev kernel module is loaded"
 # On some fresh Armbian images the spidev module is not auto-loaded at boot,
@@ -84,11 +83,15 @@ for f in /boot/armbianEnv.txt \
 done
 printf '%s\n' "$BACKUP_DIR" | sudo tee "$INSTALL_DIR/last_backup" >/dev/null
 
-log "Compiling Device Tree Overlay"
-# /opt is root-owned; compile to a temporary user-writable path, then install with sudo.
+log "Installing Device Tree Overlay"
+# Use the precompiled overlay; rebuild only if dtc is available (e.g. after editing the .dts).
 TMP_DTBO="$(mktemp --suffix=.dtbo)"
 trap 'rm -f "$TMP_DTBO"' EXIT
-dtc -@ -I dts -O dtb -o "$TMP_DTBO" "$INSTALL_DIR/overlay/ts35_cb1.dts"
+if command -v dtc >/dev/null 2>&1; then
+    dtc -@ -I dts -O dtb -o "$TMP_DTBO" "$INSTALL_DIR/overlay/ts35_cb1.dts"
+else
+    cp "$PROJECT_DIR/overlay/ts35_cb1.dtbo" "$TMP_DTBO"
+fi
 sudo mkdir -p /boot/overlay-user
 sudo cp "$TMP_DTBO" /boot/overlay-user/ts35_cb1.dtbo
 sudo cp "$TMP_DTBO" "$INSTALL_DIR/overlay/ts35_cb1.dtbo"

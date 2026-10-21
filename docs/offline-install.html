@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نصب آفلاین TS35</title>
+<style>
+:root{--bg:#f3f5f9;--card:#fff;--text:#1f2937;--muted:#6b7280;--accent:#2563eb;--accent2:#7c3aed;--code:#0f172a;--codetext:#e2e8f0;--border:#e5e7eb;--warn:#fff7e6;--warnb:#f59e0b}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1120;--card:#111827;--text:#e5e7eb;--muted:#9ca3af;--border:#1f2937;--code:#020617;--warn:#2a2112}}
+*{box-sizing:border-box}
+body{margin:0;font-family:Vazirmatn,"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--text);line-height:1.9}
+header{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:40px 16px 70px;text-align:center}
+header h1{margin:0 0 8px;font-size:1.8em}
+.users{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.users span{background:rgba(255,255,255,.18);padding:4px 14px;border-radius:999px;font-size:.9em}
+main{max-width:860px;margin:-45px auto 40px;padding:0 16px}
+h2{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin:28px 0 12px;font-size:1.2em;box-shadow:0 2px 8px rgba(0,0,0,.05);border-right:5px solid var(--accent)}
+h3{font-size:1em;margin:22px 4px 6px;color:var(--accent)}
+p{margin:6px 4px}
+pre{position:relative;direction:ltr;text-align:left;background:var(--code);color:var(--codetext);border-radius:10px;padding:14px 16px;overflow-x:auto;font:13.5px/1.6 Consolas,"Courier New",monospace;margin:8px 0}
+code{direction:ltr;unicode-bidi:embed;background:rgba(37,99,235,.1);color:var(--accent);padding:1px 6px;border-radius:5px;font-family:Consolas,monospace;font-size:.9em}
+header code{background:rgba(255,255,255,.2);color:#fff}
+.copy{position:absolute;top:8px;right:8px;background:#334155;color:#fff;border:0;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px;opacity:.75}
+.copy:hover{opacity:1}
+.note{background:var(--warn);border-right:4px solid var(--warnb);border-radius:10px;padding:12px 14px}
+footer{text-align:center;color:var(--muted);font-size:.85em;padding-bottom:30px}
+</style>
+</head>
+<body>
+<header><h1>نصب آفلاین MKS TS35 + HelixScreen</h1>
+<div class="users"><span>💻 کامپیوتر: <code>hello hamid</code></span><span>🍓 BTT Pi: <code>biqu</code></span></div></header>
+<main>
+
+<h2>۱. آماده‌سازی (با اینترنت)</h2>
+<h3>۱-۱. دانلود ریپازیتوری</h3>
+<p>ZIP ریپازیتوری را دانلود و در این مسیر extract کنید:</p>
+<pre>C:\Users\hello hamid\Downloads\mks-ts35-btt-pi-Helix-screen</pre>
+
+<h3>۱-۲. دانلود HelixScreen</h3>
+<p>فایل نسخه‌ی <code>arm64</code> را از صفحه‌ی Releases در <code>C:\Users\hello hamid\Downloads\</code> ذخیره کنید:</p>
+<pre>https://github.com/prestonbrown/helixscreen/releases</pre>
+
+<h2>۲. انتقال به BTT Pi</h2>
+<p>در PowerShell کامپیوتر اجرا کنید (به‌جای <code>IP</code> آدرس BTT Pi را بنویسید):</p>
+<pre>cd "C:\Users\hello hamid\Downloads"
+scp -r mks-ts35-btt-pi-Helix-screen biqu@IP:/home/biqu/
+scp helixscreen-* biqu@IP:/home/biqu/</pre>
+<p>سپس وارد BTT Pi شوید:</p>
+<pre>ssh biqu@IP</pre>
+
+<h2>۳. نصب (روی BTT Pi)</h2>
+<p class="note">بسته‌ی اضافی لازم نیست؛ درایور فقط از Python موجود در MainsailOS استفاده می‌کند.</p>
+
+<h3>۳-۱. ماژول spidev</h3>
+<pre>sudo modprobe spidev
+echo spidev | sudo tee /etc/modules-load.d/ts35-spidev.conf</pre>
+
+<h3>۳-۲. کپی فایل‌ها</h3>
+<pre>cd /home/biqu/mks-ts35-btt-pi-Helix-screen
+sudo mkdir -p /opt/novin3dp-ts35-helix/scripts /opt/novin3dp-ts35-helix/overlay
+sudo cp scripts/*.py /opt/novin3dp-ts35-helix/scripts/
+sudo cp overlay/ts35_cb1.dts /opt/novin3dp-ts35-helix/overlay/
+sudo chmod 755 /opt/novin3dp-ts35-helix/scripts/*.py</pre>
+
+<h3>۳-۳. بکاپ</h3>
+<pre>mkdir -p /home/biqu/novin3dp-ts35-helix-backups
+cp /boot/armbianEnv.txt /home/biqu/printer_data/config/printer.cfg /home/biqu/novin3dp-ts35-helix-backups/</pre>
+
+<h3>۳-۴. Overlay</h3>
+<pre>sudo mkdir -p /boot/overlay-user
+sudo cp overlay/ts35_cb1.dtbo /boot/overlay-user/
+sudo nano /boot/armbianEnv.txt</pre>
+<p>در فایل باز شده، <code>ts35_cb1</code> را به انتهای خط <code>user_overlays=</code> اضافه کنید. اگر این خط وجود ندارد، این خط را بنویسید:</p>
+<pre>user_overlays=ts35_cb1</pre>
+
+<h3>۳-۵. غیرفعال‌کردن KlipperScreen</h3>
+<pre>for s in KlipperScreen klipperscreen; do sudo systemctl stop $s; sudo systemctl disable $s; sudo systemctl mask $s; done 2>/dev/null</pre>
+
+<h3>۳-۶. نصب HelixScreen</h3>
+<p>فایل <code>/home/biqu/helixscreen-*</code> را طبق راهنمای همان نسخه نصب کنید:</p>
+<pre>https://github.com/prestonbrown/helixscreen</pre>
+
+<h3>۳-۷. سرویس تاچ</h3>
+<p>اگر بیپر ندارید، در خط اول <code>BEEP=0</code> بگذارید:</p>
+<pre>BEEP=1
+sed -e "s#__TS35_BEEPER_FLAG__#/home/biqu/beeper_enabled#g" -e "s#__TS35_BEEPER_HARDWARE__#$BEEP#g" \
+    services/virtual-touch.service | sudo tee /etc/systemd/system/virtual-touch.service >/dev/null
+echo 1 > /home/biqu/beeper_enabled
+sudo chown -R biqu:biqu /opt/novin3dp-ts35-helix</pre>
+
+<h3>۳-۸. بیپر (فقط اگر BEEP=1)</h3>
+<pre>sed -e "s#__TS35_USER__#biqu#g" -e "s#__TS35_BEEPER_FLAG__#/home/biqu/beeper_enabled#g" \
+    services/beeper-watcher.service | sudo tee /etc/systemd/system/beeper-watcher.service >/dev/null
+grep -q '^\[gcode_macro TOGGLE_BEEPER\]' /home/biqu/printer_data/config/printer.cfg || \
+    { echo; cat klipper/toggle_beeper.cfg; } >> /home/biqu/printer_data/config/printer.cfg
+sudo systemctl enable beeper-watcher.service</pre>
+
+<h3>۳-۹. فعال‌سازی و ری‌استارت</h3>
+<pre>sudo systemctl daemon-reload
+sudo systemctl enable virtual-touch.service
+sudo reboot</pre>
+
+<h2>۴. بررسی</h2>
+<pre>ls /dev/spidev0.2
+systemctl status virtual-touch.service --no-pager
+systemctl status helixscreen --no-pager</pre>
+<p class="note">اگر تاچ برعکس بود، مقادیر <code>SWAP_XY</code>، <code>INVERT_X</code> و <code>INVERT_Y</code> را در <code>/opt/novin3dp-ts35-helix/scripts/virtual_touch.py</code> تغییر دهید و بعد این دستور را اجرا کنید: <code>sudo systemctl restart virtual-touch</code></p>
+</main>
+<footer>Novin3dp · MKS TS35 + BTT Pi + HelixScreen</footer>
+<script>
+document.querySelectorAll('pre').forEach(function(p){var b=document.createElement('button');b.className='copy';b.textContent='کپی';b.onclick=function(){var t=p.innerText.replace(/کپی$|کپی شد$/,'').trim();navigator.clipboard.writeText(t).then(function(){b.textContent='کپی شد';setTimeout(function(){b.textContent='کپی'},1500)})};p.appendChild(b)});
+</script>
+</body>
+</html>
