@@ -23,15 +23,15 @@ https://github.com/Novin3dp/mks-ts35-btt-pi-klipper-screen
 روی BTT Pi / CB1 با کاربر معمولی (نه root) اجرا کنید:
 
 ```bash
-tmp=$(mktemp -d) && git clone --depth 1 https://github.com/Novin3dp/mks-ts35-helixscreen.git "$tmp/ts35h" && bash "$tmp/ts35h/install.sh"; rc=$?; rm -rf "$tmp"; exit $rc
+tmp=$(mktemp -d) && git clone --depth 1 https://github.com/Novin3dp/mks-ts35-btt-pi-Helix-screen.git "$tmp/ts35h" && bash "$tmp/ts35h/install.sh"; rc=$?; rm -rf "$tmp"; exit $rc
 ```
 
 یا به‌صورت دستی:
 
 ```bash
 cd ~
-git clone https://github.com/Novin3dp/mks-ts35-helixscreen.git
-cd mks-ts35-helixscreen
+git clone https://github.com/Novin3dp/mks-ts35-btt-pi-Helix-screen.git
+cd mks-ts35-btt-pi-Helix-screen
 bash install.sh
 ```
 
@@ -144,7 +144,7 @@ Y_RAW_MAX = 3900
 ## رفع نصب (Uninstall)
 
 ```bash
-cd mks-ts35-helixscreen
+cd mks-ts35-btt-pi-Helix-screen
 bash uninstall.sh
 ```
 
