@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="https://github.com/Novin3dp/mks-ts35-helixscreen.git"
+REPO_URL="https://github.com/Novin3dp/mks-ts35-btt-pi-Helix-screen.git"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="/opt/novin3dp-ts35-helix"
 USER_NAME="${SUDO_USER:-${USER}}"
